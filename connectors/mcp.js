@@ -8,7 +8,12 @@ function installMcp(app, auth, memoryDB, chatsDB) {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
     server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
-      try { return { content: [{ type: 'text', text: JSON.stringify(await dispatch(params.name, params.arguments || {}, req.residentPrincipal, memoryDB, chatsDB)) }] }; }
+      try {
+        const result = await dispatch(params.name, params.arguments || {}, req.residentPrincipal, memoryDB, chatsDB);
+        // If dispatch returns a raw MCP content response (e.g. xhs_read with image blocks), pass through directly
+        if (result && Array.isArray(result.content)) return result;
+        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+      }
       catch (error) { return { isError: true, content: [{ type: 'text', text: error.statusCode ? error.message : 'Memory operation failed; check the connection or configuration.' }] }; }
     });
     res.on('close', () => { transport.close(); server.close(); });
